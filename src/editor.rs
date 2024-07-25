@@ -1,3 +1,4 @@
+#![warn(clippy::all, clippy::pedantic)]
 use crossterm::event::{read,Event::Key,KeyCode::Char};
 use crossterm::terminal::{enable_raw_mode,disable_raw_mode};
 pub struct Editor{
@@ -12,17 +13,14 @@ impl Editor{
         loop{
             match read(){
                 Ok(Key(event))=>{
-                    println!("{:?}\r",event);
-                    match event.code{
-                        Char(c)=>{
-                            if c=='q'{
-                                break;
-                            }
+                    println!("{event:?} \r");
+                    if let Char(c)=event.code{
+                        if c == 'q'{
+                            break;
                         }
-                        _ =>(),
                     }
                 },
-                Err(err)=>println!("Error:{}",err),
+                Err(err)=>println!("Error:{err}"),
                 _=>()
             }
         }
