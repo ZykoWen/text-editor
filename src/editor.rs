@@ -1,35 +1,27 @@
 #![warn(clippy::all, clippy::pedantic)]
-use crossterm::event::{read,Event,Event::Key,KeyCode::Char,KeyEvent,KeyModifiers};//添加后两个
-use crossterm::execute;
-use std::io::stdout;
-use crossterm::terminal::{enable_raw_mode,disable_raw_mode,Clear,ClearType};
+use crossterm::event::{read,Event,Event::Key,KeyCode::Char,KeyEvent,KeyModifiers};
+use crossterm::terminal::size; //添加后两个
+mod terminal;
+use terminal::Terminal;
+
 pub struct Editor{
     should_quit:bool  //增加元素，用于判断是否需要退出循环
 }
 impl Editor{
-    pub fn default()->Self{
-        Editor{should_quit:false}
+    //下面函数中仅仅定义了一个结构体，所以可以将其设置为const函数，
+    // It enables this function to be evaluated on compile time.
+    pub const fn default()->Self{
+        // Editor{should_quit:false}
+        Self{should_quit:false}//不用再次重复结构体名称，同时可以避免之后改变结构体名字，此处还使用原名称
     }
     pub fn run(&mut self) {
-        Self::initialize().unwrap();
+        //三个位置可能出现error：初始化、实现步骤、关闭步骤
+        Terminal::initialize().unwrap();
         let result = self.repl();
-        Self::terminate().unwrap();
+        Terminal::terminate().unwrap();
         result.unwrap();
     }
-    fn initialize() -> Result<(),std::io::Error>{
-        enable_raw_mode()?;
-        Self::clear_screen()
-    }
-    fn terminate() -> Result<(), std::io::Error> {
-        disable_raw_mode()
-    }
-    fn clear_screen() -> Result<(),std::io::Error>{
-        let mut stdout = stdout();//stdout() 是调用 stdout 函数，这个函数返回一个 Stdout 类型的值，表示标准输出流。
-        execute!(stdout,Clear(ClearType::All))//execute! 是一个宏（macro），用于执行终端相关的操作。stdout 是传递给 execute! 宏的参数，表示要操作的标准输出流。
-        // Clear(ClearType::All) 是传递给 execute! 宏的另一个参数，表示要执行的操作是清空屏幕。ClearType::All 是一个枚举值，表示清空整个屏幕。
-
-    }
-    fn repl(&mut self)->Result<(),std::io::Error> {
+    pub fn repl(&mut self)->Result<(),std::io::Error> {
         loop {
             let event = read()?;
             self.evaluate_event(&event);
@@ -40,7 +32,7 @@ impl Editor{
         }
         Ok(())
     }
-    fn evaluate_event(&mut self,event:&Event){
+    pub fn evaluate_event(&mut self,event:&Event){
         if let Key(KeyEvent{code,modifiers,..})=event{
             match code{
                 Char('q') if *modifiers == KeyModifiers::CONTROL =>{
@@ -50,10 +42,29 @@ impl Editor{
             }
         }
     }
-    fn refresh_screen(&self)->Result<(),std::io::Error>{
-        if self.should_quit{
-            Self::clear_screen()?;
-            print!("Googbye.\r\n");
+    pub fn refresh_screen(&self) -> Result<(),std::io::Error>{
+        if self.should_quit == true{
+            Terminal::clear_screen()?;
+            print!("Goodbye!");
+            Ok(())
+        }else{
+            Self::draw_rows()?;
+            Terminal::move_cursor_to(0,0)?;
+            Ok(())
+        }
+    }
+    pub fn draw_rows() -> Result<(),std::io::Error>{
+        let height = size()?.1;
+        for current_row in 0..height{
+            if current_row+1 ==height{
+                print!("~")    //最后一行，输出后不换行
+            }
+            else{
+                println!("~");  //输出后换行
+            }
+            // if current_row+1 < height{
+            //     print!("\r\n");
+            // }
         }
         Ok(())
     }
