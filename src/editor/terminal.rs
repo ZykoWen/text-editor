@@ -1,29 +1,67 @@
 use std::io::stdout;
-use crossterm::execute;
-use crossterm::cursor::MoveTo;
+use std::io::Write;
+use std::io::Error;
+use crossterm::queue;
+use crossterm::cursor::{MoveTo, Hide, Show};
+use crossterm::style::Print;
 use crossterm::terminal::{enable_raw_mode,disable_raw_mode,Clear,ClearType,size};
-pub struct Terminal{}
+
+pub struct Terminal; //无字段的结构体
+pub struct Size{
+    pub height:u16,
+    pub width:u16,
+}
+#[derive(Copy, Clone)]
+pub struct Position{
+    pub x:u16,
+    pub y:u16,
+}
 impl Terminal{
-    pub fn initialize() -> Result<(),std::io::Error>{
+    pub fn initialize() -> Result<(),Error>{
         enable_raw_mode()?;
         Self::clear_screen()?;
-        Self::move_cursor_to(0,0)?;
+        Self::move_cursor_to(Position{x:0,y:0})?;
+        Self::execute()?;
         Ok(())
     }
-    pub fn terminate() -> Result<(), std::io::Error> {
+    pub fn terminate() -> Result<(), Error> {
+        Self::execute()?;
         disable_raw_mode()?;
         Ok(())
     }
-    pub fn clear_screen() -> Result<(),std::io::Error>{
-        let mut stdout = stdout();//stdout() 是调用 stdout 函数，这个函数返回一个 Stdout 类型的值，表示标准输出流。
-        execute!(stdout,Clear(ClearType::All))//execute! 是一个宏（macro），用于执行终端相关的操作。stdout 是传递给 execute! 宏的参数，表示要操作的标准输出流。
-        // Clear(ClearType::All) 是传递给 execute! 宏的另一个参数，表示要执行的操作是清空屏幕。ClearType::All 是一个枚举值，表示清空整个屏幕。
+    pub fn clear_screen() -> Result<(),Error>{
+        queue!(stdout(),Clear(ClearType::All))?;
+        Ok(()) //Clear(ClearType::All) 是传递给 execute! 宏的另一个参数，表示要执行的操作是清空屏幕。ClearType::All 是一个枚举值，表示清空整个屏幕。
     }
-    pub fn move_cursor_to(x:u16,y:u16) -> Result<(),std::io::Error>{
-        execute!(stdout(),MoveTo(x,y))?;
+    pub fn clear_line() -> Result<(),Error>{
+        queue!(stdout(),Clear(ClearType::CurrentLine))?;
         Ok(())
     }
-    pub fn size()->Result<(u16,u16),std::io::Error>{
-        size()
+    pub fn move_cursor_to(position:Position) -> Result<(),Error>{
+        queue!(stdout(),MoveTo(position.x,position.y))?;
+        Ok(())
+    }
+    pub fn size()->Result<Size,Error>{
+        Ok(Size{
+            height:size()?.1,
+            width:size()?.0,
+        })
+    }
+    pub fn hide_cursor() -> Result<(),Error>{
+        queue!(stdout(),Hide)?;
+        Ok(())
+    }
+    pub fn show_cursor() -> Result<(),Error>{
+        queue!(stdout(),Show)?;
+        Ok(())
+    }
+    pub fn print(content:&str)->Result<(),Error>{
+        queue!(stdout(),Print(content))?;
+        Ok(())
+    }
+    pub fn execute() -> Result<(),Error>{
+        //确保所有的输出都写入到输出设备
+        stdout().flush()?;
+        Ok(())
     }
 }

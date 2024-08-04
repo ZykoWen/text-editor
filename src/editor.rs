@@ -1,16 +1,16 @@
 #![warn(clippy::all, clippy::pedantic)]
-use crossterm::event::{read,Event,Event::Key,KeyCode::Char,KeyEvent,KeyModifiers};
-use crossterm::terminal::size; //添加后两个
+
+use crossterm::event::{read, Event, Event::Key, KeyCode::Char, KeyEvent, KeyModifiers};
 mod terminal;
-use terminal::Terminal;
+use terminal::{Terminal,Position};
 
 pub struct Editor{
     should_quit:bool  //增加元素，用于判断是否需要退出循环
 }
 impl Editor{
-    //下面函数中仅仅定义了一个结构体，所以可以将其设置为const函数，
-    // It enables this function to be evaluated on compile time.
     pub const fn default()->Self{
+        //下面函数中仅仅定义了一个结构体，所以可以将其设置为const函数，
+        // It enables this function to be evaluated on compile time.
         // Editor{should_quit:false}
         Self{should_quit:false}//不用再次重复结构体名称，同时可以避免之后改变结构体名字，此处还使用原名称
     }
@@ -23,12 +23,18 @@ impl Editor{
     }
     pub fn repl(&mut self)->Result<(),std::io::Error> {
         loop {
-            let event = read()?;
-            self.evaluate_event(&event);
+            // let event = read()?;
+            // self.evaluate_event(&event);
+            // self.refresh_screen()?;
+            // if self.should_quit==true{
+            //     break;
+            // }
             self.refresh_screen()?;
-            if self.should_quit==true{
+            if self.should_quit {
                 break;
             }
+            let event = read()?;
+            self.evaluate_event(&event);
         }
         Ok(())
     }
@@ -43,28 +49,26 @@ impl Editor{
         }
     }
     pub fn refresh_screen(&self) -> Result<(),std::io::Error>{
+        Terminal::hide_cursor()?;
         if self.should_quit == true{
             Terminal::clear_screen()?;
-            print!("Goodbye!");
-            Ok(())
+            Terminal::print("Goodbye!")?;
         }else{
             Self::draw_rows()?;
-            Terminal::move_cursor_to(0,0)?;
-            Ok(())
+            Terminal::move_cursor_to(Position{x:0,y:0})?;
         }
+        Terminal::show_cursor()?;
+        Terminal::execute()?;
+        Ok(())
     }
     pub fn draw_rows() -> Result<(),std::io::Error>{
-        let height = size()?.1;
+        let height = Terminal::size()?.height;
         for current_row in 0..height{
-            if current_row+1 ==height{
-                print!("~")    //最后一行，输出后不换行
+            Terminal::clear_line()?;//先清理当前行，再写波浪线
+            Terminal::print("~")?;
+            if current_row+1 < height{
+                Terminal::print("\r\n")?;
             }
-            else{
-                println!("~");  //输出后换行
-            }
-            // if current_row+1 < height{
-            //     print!("\r\n");
-            // }
         }
         Ok(())
     }
