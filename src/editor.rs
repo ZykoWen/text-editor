@@ -5,6 +5,9 @@ mod terminal;
 use std::io::Error;
 use terminal::{Position, Terminal};
 
+const NAME: &str = env!("CARGO_PKG_NAME");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub struct Editor {
     should_quit: bool, //增加元素，用于判断是否需要退出循环
 }
@@ -24,12 +27,6 @@ impl Editor {
     }
     pub fn repl(&mut self) -> Result<(), Error> {
         loop {
-            // let event = read()?;
-            // self.evaluate_event(&event);
-            // self.refresh_screen()?;
-            // if self.should_quit==true{
-            //     break;
-            // }
             self.refresh_screen()?;
             if self.should_quit {
                 break;
@@ -69,14 +66,30 @@ impl Editor {
         let height = Terminal::size()?.height;
         for current_row in 0..height {
             Terminal::clear_line()?; //先清理当前行，再写波浪线
-            Terminal::print("~")?;
             if current_row + 1 == (height / 3 as u16) {
-                Terminal::print_center("hecto editor --version 0.1.0", (height / 3 as u16))?;
+                Self::draw_welcome_message()?;
+            } else {
+                Self::draw_row()?;
             }
             if current_row + 1 < height {
                 Terminal::print("\r\n")?;
             }
         }
+        Ok(())
+    }
+    fn draw_welcome_message() -> Result<(), Error> {
+        let mut welcome_message = format!("{NAME} editor --version{VERSION}");
+        let width = Terminal::size()?.width as usize;
+        let len = welcome_message.len();
+        let padding = (width - len) / 2;
+        let spaces = " ".repeat(padding - 1); //空出一个空需要打印‘~’
+        welcome_message = format!("~{spaces}{welcome_message}");
+        welcome_message.truncate(width); //truncate the output to be at most as wide as the screen in case it is too long
+        Terminal::print(welcome_message)?;
+        Ok(())
+    }
+    fn draw_row() -> Result<(), Error> {
+        Terminal::print("~")?;
         Ok(())
     }
 }

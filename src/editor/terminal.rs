@@ -1,7 +1,8 @@
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::queue;
 use crossterm::style::Print;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType};
+use crossterm::{queue, Command};
+use std::fmt::Display;
 use std::io::stdout;
 use std::io::Error;
 use std::io::Write;
@@ -30,15 +31,15 @@ impl Terminal {
         Ok(())
     }
     pub fn clear_screen() -> Result<(), Error> {
-        queue!(stdout(), Clear(ClearType::All))?;
+        Self::queue_command(Clear(ClearType::All))?;
         Ok(()) //Clear(ClearType::All) 是传递给 execute! 宏的另一个参数，表示要执行的操作是清空屏幕。ClearType::All 是一个枚举值，表示清空整个屏幕。
     }
     pub fn clear_line() -> Result<(), Error> {
-        queue!(stdout(), Clear(ClearType::CurrentLine))?;
+        Self::queue_command(Clear(ClearType::CurrentLine))?;
         Ok(())
     }
     pub fn move_cursor_to(position: Position) -> Result<(), Error> {
-        queue!(stdout(), MoveTo(position.x, position.y))?;
+        Self::queue_command(MoveTo(position.x, position.y))?;
         Ok(())
     }
     pub fn size() -> Result<Size, Error> {
@@ -48,26 +49,25 @@ impl Terminal {
         })
     }
     pub fn hide_cursor() -> Result<(), Error> {
-        queue!(stdout(), Hide)?;
+        Self::queue_command(Hide)?;
         Ok(())
     }
     pub fn show_cursor() -> Result<(), Error> {
-        queue!(stdout(), Show)?;
+        Self::queue_command(Show)?;
         Ok(())
     }
-    pub fn print(content: &str) -> Result<(), Error> {
-        queue!(stdout(), Print(content))?;
-        Ok(())
-    }
-    pub fn print_center(content: &str, y1: u16) -> Result<(), Error> {
-        let x1 = Self::size()?.width / 2 - (content.len() as u16) / 2;
-        Self::move_cursor_to(Position { x: x1, y: y1 })?;
-        queue!(stdout(), Print(content))?;
+    pub fn print<T: Display>(string: T) -> Result<(), Error> {
+        Self::queue_command(Print(string))?;
         Ok(())
     }
     pub fn execute() -> Result<(), Error> {
         //确保所有的输出都写入到输出设备
         stdout().flush()?;
+        Ok(())
+    }
+    fn queue_command<T: Command>(command: T) -> Result<(), Error> {
+        //receive something that implements the Command trait - which is what we can pass to queue!.
+        queue!(stdout(), command)?;
         Ok(())
     }
 }
