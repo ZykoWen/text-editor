@@ -2,14 +2,25 @@ use std::io::Error;
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 use super::terminal::Terminal;
+mod buffer;
 
+use buffer::Buffer;
 
-pub struct View{}
+#[derive(Default)]
+pub struct View{
+    buffer: Buffer
+}
 impl View{
-    pub fn render() -> Result<(), Error> {
+    pub fn render(&self) -> Result<(), Error> {
         let height = Terminal::size()?.height;
         for current_row in 0..height {
             Terminal::clear_line()?; //先清理当前行，再写波浪线
+            //打印hello，world
+            if let Some(line) = self.buffer.lines.get(current_row){
+                Terminal::print(line)?;
+                Terminal::print("\r\n")?;
+                continue;
+            }
             #[allow(clippy::integer_division)]
             if current_row + 1 == height / 3 {
                 Self::draw_welcome_message()?;

@@ -2,11 +2,11 @@
 use crossterm::event::{read, Event, Event::Key, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 mod terminal;
 mod view;
+
 use view::View;
 use core::cmp::min;
 use std::io::Error;
 use terminal::{Position, Size, Terminal};
-
 #[derive(Copy, Clone, Default)]
 struct Location {
     x: usize,
@@ -16,6 +16,7 @@ struct Location {
 pub struct Editor {
     should_quit: bool, //增加元素，用于判断是否需要退出循环
     location: Location,
+    view:View,
 }
 impl Editor {
     pub fn run(&mut self) {
@@ -103,7 +104,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye!")?;
         } else {
-            View::render()?;    //初始渲染！
+            self.view.render()?;    //初始渲染！
             Terminal::move_caret_to(Position {
                 row: self.location.x,
                 col: self.location.y,
