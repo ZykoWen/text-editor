@@ -5,6 +5,7 @@ mod view;
 
 use view::View;
 use core::cmp::min;
+use std::env;
 use std::io::Error;
 use terminal::{Position, Size, Terminal};
 #[derive(Copy, Clone, Default)]
@@ -22,9 +23,16 @@ impl Editor {
     pub fn run(&mut self) {
         //三个位置可能出现error：初始化、实现步骤、关闭步骤
         Terminal::initialize().unwrap();
+        self.handle_args();
         let result = self.repl();
         Terminal::terminate().unwrap();
         result.unwrap();
+    }
+    fn handle_args(&mut self){
+        let args: Vec<String> = env::args().collect();
+        if let Some(file_name) = args.get(1){
+            self.view.load(file_name);
+        }
     }
     pub fn repl(&mut self) -> Result<(), Error> {
         loop {
@@ -114,4 +122,5 @@ impl Editor {
         Terminal::execute()?;
         Ok(())
     }
+
 }
