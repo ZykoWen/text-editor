@@ -7,6 +7,7 @@ use std::io::Error;
 use std::io::Write;
 
 pub struct Terminal; //无字段的结构体
+#[derive(Default)]
 pub struct Size {
     pub height: usize,
     pub width: usize,

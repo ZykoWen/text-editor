@@ -1,13 +1,13 @@
 #![warn(clippy::all, clippy::pedantic)]
-use crossterm::event::{read, Event, Event::Key, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 mod terminal;
 mod view;
 
-use view::View;
 use core::cmp::min;
 use std::env;
 use std::io::Error;
 use terminal::{Position, Size, Terminal};
+use view::View;
 #[derive(Copy, Clone, Default)]
 struct Location {
     x: usize,
@@ -17,7 +17,7 @@ struct Location {
 pub struct Editor {
     should_quit: bool, //增加元素，用于判断是否需要退出循环
     location: Location,
-    view:View,
+    view: View,
 }
 impl Editor {
     pub fn run(&mut self) {
@@ -28,9 +28,9 @@ impl Editor {
         Terminal::terminate().unwrap();
         result.unwrap();
     }
-    fn handle_args(&mut self){
+    fn handle_args(&mut self) {
         let args: Vec<String> = env::args().collect();
-        if let Some(file_name) = args.get(1){
+        if let Some(file_name) = args.get(1) {
             self.view.load(file_name);
         }
     }
@@ -41,38 +41,48 @@ impl Editor {
                 break;
             }
             let event = read()?;
-            self.evaluate_event(&event)?;
+            self.evaluate_event(event)?;
         }
         Ok(())
     }
-    pub fn evaluate_event(&mut self, event: &Event) -> Result<(), Error> {
-        if let Key(KeyEvent {
-            code,
-            modifiers,
-            kind: KeyEventKind::Press, //保证按一次移动键，仅仅移动一个单位
-            ..
-        }) = event
-        {
-            match code {
-                KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
+    pub fn evaluate_event(&mut self, event: Event) -> Result<(), Error> {
+        match event {
+            Event::Key(KeyEvent {
+                code,
+                modifiers,
+                kind: KeyEventKind::Press,
+                ..
+            }) => match (code, modifiers) {
+                (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
                     self.should_quit = true;
+                },
+                (
+                    KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::PageUp
+                    | KeyCode::PageDown
+                    | KeyCode::Home
+                    | KeyCode::End,
+                    _,
+                ) => {
+                    self.move_point(code)?;
                 }
-                KeyCode::Up
-                | KeyCode::Down
-                | KeyCode::Left
-                | KeyCode::Right
-                | KeyCode::PageUp
-                | KeyCode::PageDown
-                | KeyCode::Home
-                | KeyCode::End => {
-                    self.match_code(*code)?;
-                }
-                _ => (),
+                _=>{}
+            },
+            Event::Resize(width_u16, height_u16) => {
+                #[allow(clippy::as_conversions)]
+                let width = width_u16 as usize;
+                #[allow(clippy::as_conversions)]
+                let height = height_u16 as usize;
+                self.view.resize(Size { height, width });
             }
+            _ => {}
         }
         Ok(())
     }
-    pub fn match_code(&mut self, code: KeyCode) -> Result<(), Error> {
+    pub fn move_point(&mut self, code: KeyCode) -> Result<(), Error> {
         let Location { mut x, mut y } = self.location;
         let Size { height, width } = Terminal::size()?;
         match code {
@@ -105,14 +115,15 @@ impl Editor {
         self.location = Location { x, y };
         Ok(())
     }
-    pub fn refresh_screen(&self) -> Result<(), Error> {
+    pub fn refresh_screen(&mut self) -> Result<(), Error> {
+        //不知道为什么要用mut
         Terminal::hide_caret()?;
         Terminal::move_caret_to(Position::default())?;
-        if self.should_quit == true {
+        if self.should_quit {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye!")?;
         } else {
-            self.view.render()?;    //初始渲染！
+            self.view.render()?; //初始渲染！
             Terminal::move_caret_to(Position {
                 row: self.location.x,
                 col: self.location.y,
@@ -122,5 +133,4 @@ impl Editor {
         Terminal::execute()?;
         Ok(())
     }
-
 }
