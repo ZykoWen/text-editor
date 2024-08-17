@@ -4,8 +4,11 @@ mod terminal;
 mod view;
 
 use core::cmp::min;
-use std::env;
-use std::io::Error;
+use std::{
+    env,
+    io::Error,
+    panic::{set_hook, take_hook},
+};
 use terminal::{Position, Size, Terminal};
 use view::View;
 #[derive(Copy, Clone, Default)]
@@ -13,39 +16,52 @@ struct Location {
     x: usize,
     y: usize,
 }
-#[derive(Default)]
 pub struct Editor {
     should_quit: bool, //增加元素，用于判断是否需要退出循环
     location: Location,
     view: View,
 }
 impl Editor {
-    pub fn run(&mut self) {
-        //三个位置可能出现error：初始化、实现步骤、关闭步骤
-        Terminal::initialize().unwrap();
-        self.handle_args();
-        let result = self.repl();
-        Terminal::terminate().unwrap();
-        result.unwrap();
-    }
-    fn handle_args(&mut self) {
-        let args: Vec<String> = env::args().collect();
-        if let Some(file_name) = args.get(1) {
-            self.view.load(file_name);
+    pub fn new()->Result<Self,Error>{
+        let current_hook = take_hook();
+        set_hook(Box::new(move |panic_info| {
+            let _ = Terminal::terminate();
+            current_hook(panic_info);
+        }));
+        Terminal::initialize()?;
+        let mut view = View::default();
+        let args:Vec<String> = env::args().collect();
+        //检查程序是否接受了命令行参数作为文件名，如果是，则尝试加载文件
+        if let Some(file_name) = args.get(1){
+            view.load(file_name);
         }
+        Ok({
+            Self{
+                should_quit:false,
+                location:Location::default(),
+                view,
+            }
+        })
     }
-    pub fn repl(&mut self) -> Result<(), Error> {
+    pub fn run(&mut self) {
         loop {
-            self.refresh_screen()?;
+            self.refresh_screen();
             if self.should_quit {
                 break;
             }
-            let event = read()?;
-            self.evaluate_event(event)?;
+            match read() {
+                //In a Debug build, we panic if something goes wrong, in a Release build we continue evaluation.
+                Ok(event) => {
+                    self.evaluate_event(event);
+                }
+                #[cfg(debug_assertions)]
+                Err(error) => {
+                    panic!("Couldn't read event:{error:?}");
+                }
+            }
         }
-        Ok(())
     }
-    pub fn evaluate_event(&mut self, event: Event) -> Result<(), Error> {
+    pub fn evaluate_event(&mut self, event: Event){
         match event {
             Event::Key(KeyEvent {
                 code,
@@ -55,7 +71,7 @@ impl Editor {
             }) => match (code, modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
                     self.should_quit = true;
-                },
+                }
                 (
                     KeyCode::Up
                     | KeyCode::Down
@@ -67,9 +83,9 @@ impl Editor {
                     | KeyCode::End,
                     _,
                 ) => {
-                    self.move_point(code)?;
+                    self.move_point(code);
                 }
-                _=>{}
+                _ => {}
             },
             Event::Resize(width_u16, height_u16) => {
                 #[allow(clippy::as_conversions)]
@@ -80,11 +96,10 @@ impl Editor {
             }
             _ => {}
         }
-        Ok(())
     }
-    pub fn move_point(&mut self, code: KeyCode) -> Result<(), Error> {
+    pub fn move_point(&mut self, code: KeyCode){
         let Location { mut x, mut y } = self.location;
-        let Size { height, width } = Terminal::size()?;
+        let Size { height, width } = Terminal::size().unwrap_or_default();
         match code {
             KeyCode::Up => {
                 y = y.saturating_sub(1);
@@ -113,24 +128,24 @@ impl Editor {
             _ => (),
         }
         self.location = Location { x, y };
-        Ok(())
     }
-    pub fn refresh_screen(&mut self) -> Result<(), Error> {
+    pub fn refresh_screen(&mut self){
         //不知道为什么要用mut
-        Terminal::hide_caret()?;
-        Terminal::move_caret_to(Position::default())?;
-        if self.should_quit {
-            Terminal::clear_screen()?;
-            Terminal::print("Goodbye!")?;
-        } else {
-            self.view.render()?; //初始渲染！
-            Terminal::move_caret_to(Position {
-                row: self.location.x,
-                col: self.location.y,
-            })?;
+        let _ = Terminal::hide_caret();
+        self.view.render();
+        let _ = Terminal::move_caret_to(Position {
+            row: self.location.y,
+            col: self.location.x,
+        });
+        let _ = Terminal::show_caret();
+        let _ = Terminal::execute();
+    }
+}
+impl Drop for Editor{
+    fn drop(&mut self) {
+        let _ = Terminal::terminate();
+        if self.should_quit{
+            let _ = Terminal::print("Goodbye\n\r");
         }
-        Terminal::show_caret()?;
-        Terminal::execute()?;
-        Ok(())
     }
 }

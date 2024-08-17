@@ -1,6 +1,9 @@
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::style::Print;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, size, Clear, ClearType, EnterAlternateScreen,
+    LeaveAlternateScreen,
+};
 use crossterm::{queue, Command};
 use std::io::stdout;
 use std::io::Error;
@@ -26,12 +29,15 @@ pub struct Position {
 impl Terminal {
     pub fn initialize() -> Result<(), Error> {
         enable_raw_mode()?;
+        Self::enter_alternate_screen()?;
         Self::clear_screen()?;
         Self::move_caret_to(Position { row: 0, col: 0 })?;
         Self::execute()?;
         Ok(())
     }
     pub fn terminate() -> Result<(), Error> {
+        Self::leave_alternate_screen()?;
+        Self::show_caret()?;
         Self::execute()?;
         disable_raw_mode()?;
         Ok(())
@@ -49,7 +55,7 @@ impl Terminal {
     /// * 'Position' - the 'Position' to move the caret to.Will be truncated to 'u16::MAX' if bigger
     pub fn move_caret_to(position: Position) -> Result<(), Error> {
         #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
-        Self::queue_command(MoveTo(position.row as u16, position.col as u16))?;
+        Self::queue_command(MoveTo(position.col as u16, position.row as u16))?;
         Ok(())
     }
     ///Returns the current size of the terminal
@@ -72,6 +78,20 @@ impl Terminal {
     }
     pub fn print(string: &str) -> Result<(), Error> {
         Self::queue_command(Print(string))?;
+        Ok(())
+    }
+    pub fn print_row(row: usize, text_line: &str) -> Result<(), Error> {
+        Self::move_caret_to(Position { row, col: 0 })?;
+        Self::clear_line()?;
+        Self::print(text_line)?;
+        Ok(())
+    }
+    pub fn enter_alternate_screen() -> Result<(), Error> {
+        Self::queue_command(EnterAlternateScreen)?;
+        Ok(())
+    }
+    pub fn leave_alternate_screen() -> Result<(), Error> {
+        Self::queue_command(LeaveAlternateScreen)?;
         Ok(())
     }
     pub fn execute() -> Result<(), Error> {
