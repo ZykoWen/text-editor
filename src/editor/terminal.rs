@@ -36,7 +36,7 @@ impl Terminal {
         Ok(())
     }
     pub fn terminate() -> Result<(), Error> {
-        Self::leave_alternate_screen()?;
+        Self::leave_alternate_screen()?; //离开替代屏幕
         Self::show_caret()?;
         Self::execute()?;
         disable_raw_mode()?;
